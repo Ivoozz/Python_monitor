@@ -4,6 +4,7 @@ XML-RPC Agent Server for System Monitoring
 Runs on System B and exposes system metrics via XML-RPC
 """
 
+import os
 import sys
 import logging
 import subprocess
@@ -16,12 +17,22 @@ import re
 
 logger = logging.getLogger('AgentServer')
 
+# Determine default config path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
+DEFAULT_CONFIG_PATH = os.environ.get(
+    'AGENT_CONFIG',
+    os.path.join(PROJECT_DIR, 'config', 'agent_config.json')
+)
+
 
 class MonitorAgent:
     """Agent that collects system metrics and exposes them via XML-RPC"""
     
-    def __init__(self, config_path: str = '/home/engine/project/config/agent_config.json'):
+    def __init__(self, config_path: str = None):
         """Initialize the monitor agent"""
+        if config_path is None:
+            config_path = DEFAULT_CONFIG_PATH
         self.config = self.load_config(config_path)
         self.setup_logging()
         self.hostname = socket.gethostname()
@@ -29,8 +40,6 @@ class MonitorAgent:
     
     def setup_logging(self):
         """Setup logging with configurable file path"""
-        import os
-        
         # Determine log file path
         log_file = self.config.get('log_file')
         

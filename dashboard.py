@@ -22,11 +22,16 @@ logger = logging.getLogger('Dashboard')
 
 app = Flask(__name__)
 
-# Configuration
-DEVICES_FILE = '/home/engine/project/config/dashboard_devices.json'
-METRICS_FILE = '/home/engine/project/storage/latest_metrics.json'
-POLL_INTERVAL = 5  # seconds
-AGENT_TIMEOUT = 10  # seconds
+# Configuration - use environment variables or defaults
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEVICES_FILE = os.environ.get('DEVICES_FILE', os.path.join(PROJECT_DIR, 'config', 'dashboard_devices.json'))
+METRICS_FILE = os.environ.get('METRICS_FILE', os.path.join(PROJECT_DIR, 'storage', 'latest_metrics.json'))
+POLL_INTERVAL = int(os.environ.get('POLL_INTERVAL', '5'))  # seconds
+AGENT_TIMEOUT = int(os.environ.get('AGENT_TIMEOUT', '10'))  # seconds
+
+# Ensure directories exist
+os.makedirs(os.path.dirname(DEVICES_FILE), exist_ok=True)
+os.makedirs(os.path.dirname(METRICS_FILE), exist_ok=True)
 
 # Thread-safe device storage
 devices_lock = Lock()
