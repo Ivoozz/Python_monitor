@@ -1,1044 +1,821 @@
-# Python Monitoring System Documentation
+# Python System Monitoring via XML-RPC
+
+A comprehensive Python-based monitoring system that allows System A to monitor multiple System B agents in near real-time using XML-RPC communication.
 
 ## Table of Contents
-1. [Overview](#overview)
-2. [System Architecture](#system-architecture)
-3. [Installation](#installation)
-4. [Configuration](#configuration)
-5. [Usage](#usage)
-6. [Adding Multiple Monitored Systems](#adding-multiple-monitored-systems)
-7. [Storage Backends](#storage-backends)
-8. [Visualization](#visualization)
-9. [OS-Specific Limitations](#os-specific-limitations)
-10. [Security Implications](#security-implications)
-11. [Troubleshooting](#troubleshooting)
-12. [Advanced Configuration](#advanced-configuration)
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [OS-Specific Limitations](#os-specific-limitations)
+- [Security Considerations](#security-considerations)
+- [Storage Options](#storage-options)
+- [Visualization](#visualization)
+- [Troubleshooting](#troubleshooting)
 
 ## Overview
 
-This Python monitoring system provides real-time monitoring of multiple system metrics across multiple remote systems using XML-RPC communication. The system consists of two main components:
+This monitoring system consists of:
+- **Agent Server** (runs on System B): Collects system metrics and exposes them via XML-RPC
+- **Collector** (runs on System A): Polls multiple agents and stores metrics
+- **Storage Layer**: Abstracts storage between file logging and MySQL database
+- **Visualization**: Generates graphs and dashboards from collected data
 
-- **Agent**: Runs on the system being monitored (System B)
-- **Collector**: Runs on the central monitoring system (System A)
-
-### Key Features
-
-- **Real-time monitoring** with configurable polling intervals
-- **Multiple metrics**: CPU temperature, system load, CPU usage, security threats
-- **Threshold monitoring** with configurable warning and critical levels
-- **Flexible storage**: File-based (with rotation) or MySQL database
-- **Visualization**: Generate graphs using Matplotlib and Seaborn
-- **Concurrent monitoring** of multiple systems
-- **Thread-safe operations** for reliable data collection
-
-## System Architecture
+## Architecture
 
 ```
 ┌─────────────────┐         XML-RPC          ┌─────────────────┐
-│   System A      │◄────────────────────────►│   System B      │
-│  (Collector)    │                           │    (Agent)      │
-├─────────────────┤                           ├─────────────────┤
-│ - Polls agents  │                           │ - Exposes       │
-│ - Stores data   │                           │   metrics       │
-│ - Generates     │                           │ - CPU temp      │
-│   graphs        │                           │ - CPU usage     │
-│ - Checks alerts │                           │ - Load avg      │
-└─────────────────┘                           └─────────────────┘
+│   Collector     │◄────────────────────────►│  Agent Server   │
+│   (System A)    │   (HTTP/XML-RPC)         │   (System B)    │
+└─────────┬───────┘                          └─────────┬───────┘
+          │                                            │
+          │                                            ▼
+          │                                   ┌─────────────────┐
+          │                                   │  System Metrics │
+          │                                   │  • CPU Temp     │
+          │                                   │  • CPU Usage    │
+          │                                   │  • Load Avg     │
+          │                                   │  • Memory       │
+          │                                   │  • Disk         │
+          │                                   │  • Security     │
+          │                                   └─────────────────┘
+          │
+          ▼
+┌─────────────────┐
+│  Storage Layer  │
+│  • File (LOG)   │
+│  • MySQL        │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Visualization   │
+│  • Graphs       │
+│  • Dashboard    │
+└─────────────────┘
 ```
 
-### Components
+## Features
 
-1. **Agent (`src/monitoring/agent.py`)**
-   - XML-RPC server exposing system metrics
-   - Cross-platform metric collection
-   - Security threat detection
-   - Graceful handling of missing sensors
+### Required Metrics (All Mandatory)
+- ✅ **CPU Temperature** - Gracefully handles missing sensors
+- ✅ **High System Load** - 1, 5, and 15-minute averages
+- ✅ **High CPU Usage** - Real-time CPU percentage
+- ✅ **Security Threats** - Suspicious processes, SSH attempts, network activity
 
-2. **Collector (`src/monitoring/collector.py`)**
-   - Manages multiple agents concurrently
-   - Threshold monitoring and alerting
-   - Data storage and retrieval
-   - Configurable polling intervals
+### Additional Features
+- ✅ **Near Real-Time Monitoring** - Configurable polling intervals
+- ✅ **Multiple Agent Support** - Monitor unlimited System B instances
+- ✅ **Logging with Rotation** - Automatic log rotation and management
+- ✅ **Optional MySQL Storage** - Scalable database storage
+- ✅ **Graph Visualization** - Matplotlib/Seaborn graphs
+- ✅ **Alert System** - Threshold-based alerting
+- ✅ **Thread-Safe Operations** - Concurrent agent polling
 
-3. **Storage (`src/monitoring/storage.py`)**
-   - Abstract storage layer
-   - Support for log files, SQLite, and MySQL
-   - Automatic data rotation
-   - Thread-safe operations
+## Prerequisites
 
-4. **Visualization (`src/monitoring/visualization.py`)**
-   - Generate graphs from collected data
-   - Comparison across multiple agents
-   - Customizable graph formats
-   - Support for various time ranges
+### System Requirements
+- Python 3.7 or higher
+- Linux, macOS, or Windows
+- Network connectivity between System A and System B
+
+### Python Dependencies
+```
+psutil>=5.8.0
+matplotlib>=3.3.0
+seaborn>=0.11.0
+pandas>=1.3.0
+numpy>=1.20.0
+pymysql>=1.0.0 (for MySQL storage)
+```
 
 ## Installation
 
-### Prerequisites
-
-- Python 3.7 or higher
-- psutil (for system metrics)
-- Optional: MySQL server for database storage
-- Optional: matplotlib and seaborn for graphs
-
-### Step 1: Install Dependencies
+### 1. Clone and Setup
 
 ```bash
-# Clone or download the monitoring system
-cd /path/to/monitoring-system
+git clone <repository>
+cd python-monitor
+```
 
-# Install required dependencies
+### 2. Install Dependencies
+
+```bash
 pip install -r requirements.txt
-
-# Or install individually:
-pip install psutil matplotlib seaborn pymysql
 ```
 
-### Step 2: Set Up Directory Structure
+### 3. Create Required Directories
 
 ```bash
-# Create required directories
-sudo mkdir -p /var/log/monitoring/{data,graphs}
-
-# Set appropriate permissions (run as non-root user)
-sudo chown -R monitor:monitor /var/log/monitoring
-sudo chmod 755 /var/log/monitoring
-sudo chmod 755 /var/log/monitoring/{data,graphs}
+sudo mkdir -p /var/log
+sudo mkdir -p /tmp/dashboard
 ```
 
-### Step 3: Set Up MySQL Database (Optional)
-
-If using MySQL storage backend:
+### 4. Setup Database (Optional)
 
 ```bash
-# Log in to MySQL as root
-mysql -u root -p
+mysql -u root -p < db/init_database.sql
+```
 
-# Run the initialization script
-SOURCE sql/init_db.sql;
+## Quick Start
 
-# Create dedicated user (optional but recommended)
-CREATE USER 'monitor'@'localhost' IDENTIFIED BY 'your_secure_password';
-GRANT ALL PRIVILEGES ON monitoring.* TO 'monitor'@'localhost';
-FLUSH PRIVILEGES;
+### Method 1: Quick Local Test
+
+#### Terminal 1 - Start Agent (System B)
+```bash
+# Start the agent server on localhost
+python3 /home/engine/project/agent/agent_server.py
+```
+
+#### Terminal 2 - Start Collector (System A)
+```bash
+# Update config to monitor localhost
+echo '{"host": "localhost", "port": 8000, "name": "local-agent"}' > /tmp/agent.json
+
+# Start collector
+python3 /home/engine/project/collector/collector.py
+```
+
+### Method 2: Production Setup
+
+#### System B - Install Agent
+
+1. **Install Agent Script**
+```bash
+sudo cp agent/agent_server.py /usr/local/bin/monitor-agent
+sudo chmod +x /usr/local/bin/monitor-agent
+sudo cp config/agent_config.json /etc/monitor/
+```
+
+2. **Configure Firewall** (if needed)
+```bash
+sudo ufw allow 8000/tcp
+# or
+sudo firewall-cmd --add-port=8000/tcp --permanent
+```
+
+3. **Create Systemd Service**
+```bash
+sudo tee /etc/systemd/system/monitor-agent.service > /dev/null <<EOF
+[Unit]
+Description=Monitor Agent
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python3 /usr/local/bin/monitor-agent
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl enable monitor-agent
+sudo systemctl start monitor-agent
+```
+
+#### System A - Install Collector
+
+1. **Install Collector**
+```bash
+sudo cp collector/collector.py /usr/local/bin/monitor-collector
+sudo cp config/collector_config.json /etc/monitor/
+sudo chmod +x /usr/local/bin/monitor-collector
+```
+
+2. **Configure Agents**
+```bash
+sudo nano /etc/monitor/collector_config.json
+# Add your agent IPs
+```
+
+3. **Create Systemd Service**
+```bash
+sudo tee /etc/systemd/system/monitor-collector.service > /dev/null <<EOF
+[Unit]
+Description=Monitor Collector
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/monitor-collector
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl enable monitor-collector
+sudo systemctl start monitor-collector
 ```
 
 ## Configuration
 
-The system uses a configuration file (default: `config/config.ini`) to manage settings.
+### Agent Configuration (`/home/engine/project/config/agent_config.json`)
 
-### Example Configuration
-
-```ini
-[general]
-log_level = INFO
-poll_interval = 10
-
-[storage]
-backend = log
-
-[logging]
-log_file = /var/log/monitoring/collector.log
-max_log_size = 10
-backup_count = 5
-
-[mysql]
-host = localhost
-port = 3306
-user = monitor
-password = changeme
-database = monitoring
-
-[agents]
-agent1 = localhost:9000
-agent2 = 192.168.1.100:9000
-server3 = 192.168.1.101:9000
-
-[thresholds]
-cpu_temp_warning = 70
-cpu_temp_critical = 85
-load_warning = 2.0
-load_critical = 4.0
-cpu_usage_warning = 80
-cpu_usage_critical = 95
-
-[visualization]
-output_dir = /var/log/monitoring/graphs
-graph_width = 12
-graph_height = 8
+```json
+{
+    "host": "0.0.0.0",              # Listen address
+    "port": 8000,                   # XML-RPC port
+    "check_interval": 30,           # Internal check interval
+    "log_level": "INFO",            # Logging level
+    "log_file": "/var/log/monitor_agent.log",
+    "metrics": {
+        "enable_temperature": true,
+        "enable_cpu": true,
+        "enable_memory": true,
+        "enable_disk": true,
+        "enable_security": true
+    },
+    "security": {
+        "allowed_ips": ["127.0.0.1", "192.168.1.0/24"],
+        "require_auth": false
+    }
+}
 ```
 
-### Configuration Options
+### Collector Configuration (`/home/engine/project/config/collector_config.json`)
 
-#### General Section
-- `log_level`: Logging level (DEBUG, INFO, WARNING, ERROR)
-- `poll_interval`: How often to poll agents (seconds)
+```json
+{
+    "agents": [
+        {
+            "name": "server-01",
+            "host": "192.168.1.101",
+            "port": 8000
+        },
+        {
+            "name": "server-02", 
+            "host": "192.168.1.102",
+            "port": 8000
+        }
+    ],
+    "poll_interval": 30,            # Polling frequency (seconds)
+    "timeout": 10,                  # XML-RPC timeout
+    "storage": {
+        "type": "file",             # "file" or "mysql"
+        "log_file": "/var/log/metrics_collector.log",
+        "metrics_file": "/var/log/metrics_data.log",
+        "json_file": "/var.log/metrics_data.json",
+        "rotation": {
+            "max_size": "10MB",
+            "backup_count": 5
+        }
+    },
+    "thresholds": {
+        "cpu_usage": 80,            # Alert thresholds
+        "cpu_temperature": 70,
+        "system_load": 2.0,
+        "memory_usage": 85,
+        "disk_usage": 90
+    }
+}
+```
 
-#### Storage Section
-- `backend`: Storage backend ('log', 'mysql', 'sqlite')
-- `retention_days`: How long to keep data
+### MySQL Storage Configuration
 
-#### Logging Section
-- `log_file`: Path to collector log file
-- `max_log_size`: Maximum size in MB before rotation
-- `backup_count`: Number of backup log files
+To use MySQL storage, update the collector config:
 
-#### MySQL Section
-- `host`: MySQL server hostname
-- `port`: MySQL port
-- `user`: Database username
-- `password`: Database password
-- `database`: Database name
-
-#### Agents Section
-- Add entries in format: `name = host:port`
-- name: Friendly name for the agent
-- host: IP address or hostname
-- port: Agent listening port
-
-#### Thresholds Section
-- `cpu_temp_warning`: Warning threshold in Celsius
-- `cpu_temp_critical`: Critical threshold in Celsius
-- `load_warning`: System load warning threshold
-- `load_critical`: System load critical threshold
-- `cpu_usage_warning`: CPU usage warning percentage
-- `cpu_usage_critical`: CPU usage critical percentage
-
-#### Visualization Section
-- `output_dir`: Directory to save graphs
-- `graph_width`: Graph width in inches
-- `graph_height`: Graph height in inches
+```json
+{
+    "storage": {
+        "type": "mysql",
+        "mysql_host": "localhost",
+        "mysql_port": 3306,
+        "mysql_user": "monitor",
+        "mysql_password": "your_password",
+        "mysql_database": "monitoring"
+    }
+}
+```
 
 ## Usage
 
-### Starting the Agent
-
-On each system you want to monitor:
+### Testing Connectivity
 
 ```bash
-# Using the startup script
-chmod +x scripts/start_agent.sh
-./scripts/start_agent.sh --host 0.0.0.0 --port 9000
-
-# Or directly with Python
-python3 -m src.monitoring.agent --host 0.0.0.0 --port 9000
+# Test agent connectivity
+python3 -c "
+import xmlrpc.client
+proxy = xmlrc.client.ServerProxy('http://192.168.1.101:8000')
+print(proxy.ping())
+"
 ```
 
-**Agent Options:**
-- `--host`: Host to bind to (default: 0.0.0.0)
-- `--port`: Port to listen on (default: 9000)
-- `--log-level`: Logging level (DEBUG, INFO, WARNING, ERROR)
-
-### Starting the Collector
-
-On the central monitoring system:
+### Generating Visualizations
 
 ```bash
-# Using the startup script
-chmod +x scripts/start_collector.sh
-./scripts/start_collector.sh --config config/config.ini
+# Generate all graphs for last 24 hours
+python3 /home/engine/project/visualization/visualize_metrics.py --plot all --hours 24
 
-# Or directly with Python
-python3 -m src.monitoring.collector --config config/config.ini
+# Generate specific graphs
+python3 /home/engine/project/visualization/visualize_metrics.py --plot temperature --hours 12
+
+# Generate for specific agent
+python3 /home/engine/project/visualization/visualize_metrics.py --plot cpu --agent server-01
+
+# Generate custom dashboard
+python3 /home/engine/project/visualization/visualize_metrics.py \
+    --output-dir /var/www/dashboard \
+    --hours 48 \
+    --plot all
 ```
 
-**Collector Options:**
-- `--config`: Path to configuration file
-- `--log-level`: Logging level
-
-### Running as a Service
-
-For production use, run the collector and agents as systemd services:
-
-#### Agent Service (on each monitored system)
-
-Create `/etc/systemd/system/monitoring-agent.service`:
-
-```ini
-[Unit]
-Description=Monitoring Agent
-After=network.target
-
-[Service]
-Type=simple
-User=monitor
-Group=monitor
-WorkingDirectory=/path/to/monitoring-system
-ExecStart=/usr/bin/python3 -m src.monitoring.agent --host 0.0.0.0 --port 9000
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
-```bash
-sudo systemctl enable monitoring-agent
-sudo systemctl start monitoring-agent
-sudo systemctl status monitoring-agent
-```
-
-#### Collector Service (on monitoring system)
-
-Create `/etc/systemd/system/monitoring-collector.service`:
-
-```ini
-[Unit]
-Description=Monitoring Collector
-After=network.target
-
-[Service]
-Type=simple
-User=monitor
-Group=monitor
-WorkingDirectory=/path/to/monitoring-system
-ExecStart=/usr/bin/python3 -m src.monitoring.collector --config config/config.ini
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
-```bash
-sudo systemctl enable monitoring-collector
-sudo systemctl start monitoring-collector
-sudo systemctl status monitoring-collector
-```
-
-## Adding Multiple Monitored Systems
-
-### Step 1: Deploy Agent to Each System
-
-1. Copy the monitoring system files to each system you want to monitor
-2. Install dependencies: `pip install -r requirements.txt`
-3. Start the agent on each system:
+### Querying Stored Data
 
 ```bash
-# On each monitored system
-./scripts/start_agent.sh --host 0.0.0.0 --port 9000
-```
+# Check recent metrics in log file
+tail -f /var/log/metrics_data.log
 
-### Step 2: Configure Agents in Collector
-
-Edit `config/config.ini` on the monitoring system:
-
-```ini
-[agents]
-web_server1 = 192.168.1.100:9000
-web_server2 = 192.168.1.101:9000
-db_server = 192.168.1.102:9000
-mail_server = 192.168.1.103:9000
-```
-
-### Step 3: Restart the Collector
-
-```bash
-# Stop the collector
-sudo systemctl stop monitoring-collector
-
-# Start it again
-sudo systemctl start monitoring-collector
-```
-
-### Step 4: Verify Monitoring
-
-Check the collector logs:
-
-```bash
-tail -f /var/log/monitoring/collector.log
-```
-
-You should see entries like:
-```
-INFO - Collector started
-INFO - Monitoring 4 agent(s)
-INFO - Loaded agent: web_server1 at 192.168.1.100:9000
-INFO - Collected metrics from 4 agent(s)
-```
-
-### Automated Deployment Script
-
-You can create a script to automate agent deployment:
-
-```bash
-#!/bin/bash
-# deploy_agents.sh
-
-AGENTS=("192.168.1.100" "192.168.1.101" "192.168.1.102")
-
-for agent in "${AGENTS[@]}"; do
-    echo "Deploying agent to $agent..."
-    scp -r /path/to/monitoring-system user@$agent:/tmp/
-    ssh user@$agent "cd /tmp/monitoring-system && pip install -r requirements.txt"
-    ssh user@$agent "sudo systemctl enable monitoring-agent"
-    ssh user@$agent "sudo systemctl start monitoring-agent"
-done
-```
-
-## Storage Backends
-
-### File-Based Storage (Default)
-
-The system stores metrics in JSONL format with automatic rotation:
-
-- **Storage location**: `/var/log/monitoring/data/metrics.jsonl`
-- **Format**: One JSON object per line
-- **Rotation**: When file exceeds 10MB (configurable)
-- **Retention**: Automatic cleanup recommended via cron
-
-**Advantages:**
-- Simple setup, no database required
-- Good for small deployments
-- Easy to parse with standard tools
-
-**Disadvantages:**
-- Limited querying capabilities
-- Can become slow with large datasets
-
-### SQLite Storage (Recommended for Medium Deployments)
-
-SQLite provides better performance and querying:
-
-**Configuration:**
-```ini
-[storage]
-backend = sqlite
-```
-
-SQLite files are stored in `/var/log/monitoring/metrics.db`
-
-**Advantages:**
-- Better performance than file storage
-- Built-in Python, no additional setup
-- Good for medium-sized deployments
-
-**Disadvantages:**
-- Single writer at a time (though our implementation handles this)
-
-### MySQL Storage (Recommended for Large Deployments)
-
-For production environments with multiple collectors or high data volumes:
-
-**Configuration:**
-```ini
-[storage]
-backend = mysql
-
-[mysql]
-host = localhost
-port = 3306
-user = monitor
-password = your_secure_password
-database = monitoring
-```
-
-**Advantages:**
-- Multi-user access
-- High performance with proper indexing
-- Advanced querying and reporting
-- Supports multiple collectors
-
-**Disadvantages:**
-- Requires MySQL setup
-- Additional complexity
-
-**MySQL Setup:**
-1. Install MySQL server
-2. Run `sql/init_db.sql`
-3. Create dedicated user
-4. Configure in `config/config.ini`
-
-## Visualization
-
-### Generating Graphs
-
-Use the visualization script to generate graphs:
-
-```bash
-# Generate all graphs for all agents (last 24 hours)
-chmod +x scripts/generate_graphs.sh
-./scripts/generate_graphs.sh
-
-# Generate graphs for specific agent
-./scripts/generate_graphs.sh --agent web_server1
-
-# Generate graphs with custom time range
-./scripts/generate_graphs.sh --hours 48
-
-# Compare multiple agents
-./scripts/generate_graphs.sh --compare web_server1 web_server2 db_server
-
-# Compare specific metric
-./scripts/generate_graphs.sh --compare web_server1 web_server2 --metric cpu_temperature
-
-# Save to custom directory
-./scripts/generate_graphs.sh --output-dir /var/www/html/monitoring
-```
-
-### Generated Graphs
-
-The system generates several types of graphs:
-
-1. **CPU Temperature** - Shows temperature trends with warning/critical thresholds
-2. **CPU Usage** - Displays CPU utilization over time
-3. **System Load** - Shows 1, 5, and 15-minute load averages
-4. **Overview** - Combined view of all metrics
-5. **Comparison** - Compare same metric across multiple agents
-
-### Automated Graph Generation
-
-Set up a cron job to generate graphs regularly:
-
-```bash
-# Edit crontab
-crontab -e
-
-# Add lines for hourly graphs
-0 * * * * /path/to/monitoring-system/scripts/generate_graphs.sh
-```
-
-### Web Dashboard
-
-For a web-based dashboard, you can:
-
-1. Generate graphs and save to web-accessible directory
-2. Create HTML page that displays the graphs
-3. Set up automatic refresh or manual reload
-
-Example HTML dashboard:
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>System Monitoring Dashboard</title>
-    <meta http-equiv="refresh" content="300">
-</head>
-<body>
-    <h1>Monitoring Dashboard</h1>
-    <h2>CPU Usage - web_server1</h2>
-    <img src="graphs/web_server1_cpu_usage.png">
-    
-    <h2>CPU Temperature - web_server1</h2>
-    <img src="graphs/web_server1_cpu_temp.png">
-    
-    <h2>System Load - web_server1</h2>
-    <img src="graphs/web_server1_system_load.png">
-</body>
-</html>
+# Query JSON data
+python3 -c "
+import json
+with open('/var/log/metrics_data.json', 'r') as f:
+    for line in f:
+        if 'server-01' in line:
+            print(json.loads(line))
+"
 ```
 
 ## OS-Specific Limitations
 
 ### Linux
-
-**Fully Supported:**
-- CPU temperature via `/sys/class/thermal/` and `psutil`
-- System load via `os.getloadavg()`
-- CPU usage via `psutil.cpu_percent()`
-- Security checks (SSH login attempts, suspicious processes)
-
-**Limitations:**
-- Temperature sensors may not be available on all hardware
-- Some `/sys` paths require root access
-- Temperature cache duration may vary by kernel version
-
-**Security Checks Available:**
-- Failed SSH login detection (via `/var/log/auth.log` or `/var/log/secure`)
-- Suspicious process detection
-- Unusual port monitoring
-
-### Windows
-
-**Fully Supported:**
-- CPU usage via `psutil`
-- Memory and disk usage
-- Basic security checks
-
-**Limitations:**
-- CPU temperature: Requires WMI (may not be available on all systems)
-- System load: Windows doesn't have traditional load average
-- Security checks: Limited compared to Linux
-
-**Workarounds:**
-- For CPU temperature, ensure WMI is installed and accessible
-- Use CPU usage as primary metric instead of system load
-- Consider integrating with Windows Event Log for security
+✅ **Fully Supported**
+- CPU Temperature: `/sys/class/thermal/`, `/sys/class/hwmon/`
+- CPU Usage: `psutil`, `/proc/stat`
+- System Load: `getloadavg()`, `uptime`
+- Memory: `/proc/meminfo`, `psutil`
+- Security: `/var/log/auth.log`, `psutil`
 
 ### macOS
+⚠️ **Partially Supported**
+- CPU Temperature: ❌ Not available via standard APIs
+- CPU Usage: ✅ `psutil`
+- System Load: ✅ `getloadavg()`
+- Memory: ✅ `psutil`
+- Security: ✅ Limited (process checking only)
 
-**Fully Supported:**
-- CPU temperature via IOKit (through `psutil`)
-- CPU usage via `psutil`
-- Memory and disk usage
+**Note:** macOS thermal sensors require third-party tools or IOKit.
 
-**Limitations:**
-- System load: macOS doesn't provide traditional load average
-- Security checks: Limited (no `/var/log/auth.log`)
-- Some temperature sensors may be unavailable
+### Windows
+⚠️ **Partially Supported**
+- CPU Temperature: ❌ Requires WMI or third-party tools
+- CPU Usage: ✅ `psutil`
+- System Load: ❌ No load average (returns 0.0)
+- Memory: ✅ `psutil`
+- Security: ✅ Limited process checking
 
-**Workarounds:**
-- Use CPU usage and memory pressure as alternatives to system load
-- For security checks, consider integrating with macOS security tools
+**Note:** Windows thermal zones require additional drivers or software.
 
-### Cross-Platform Considerations
+### Handling Missing Temperature Sensors
 
-1. **Testing**: Test on each target platform
-2. **Dependencies**: Different packages may be needed per OS
-3. **Logging**: Log paths vary by OS
-4. **Services**: systemd vs launchd vs services.msc
+The system gracefully handles missing temperature sensors:
 
-### Virtual Machines and Containers
+```python
+# Agent returns None for unavailable temperatures
+cpu_temperature = get_cpu_temperature()  # None if not available
 
-**Cloud VMs:**
-- CPU temperature may not be available (virtual sensors)
-- Host-level metrics aggregated
-- Container-based temperature sensors can be unreliable
+# Collector handles gracefully
+if temp is not None:
+    alert_if_above_threshold(temp)
+else:
+    log.info("Temperature sensor not available on this system")
+```
 
-**Containers:**
-- Limited access to host system metrics
-- CPU usage is relative to container limits
-- Temperature sensors unavailable
-- Requires privileged mode for full access
+## Security Considerations
 
-**Recommendations:**
-- Use CPU usage and memory as primary metrics for VMs/containers
-- Monitor host system for physical temperature
-- Consider host-level monitoring for hypervisor
+### XML-RPC Security Implications
 
-## Security Implications
+⚠️ **Important Security Notes:**
 
-### XML-RPC Security Considerations
+1. **Unencrypted Communication**
+   - XML-RPC uses plain HTTP (not HTTPS)
+   - Data transmitted in clear text
+   - Use only on trusted networks
 
-**WARNING**: XML-RPC is not encrypted by default and should only be used in trusted networks.
+2. **No Built-in Authentication**
+   - Anyone with network access can query metrics
+   - Implement additional security measures
 
-#### Risks
+3. **DoS Vulnerabilities**
+   - XML-RPC is susceptible to XML bomb attacks
+   - Implement rate limiting and firewalls
 
-1. **Unencrypted Communication**: All data transmitted in plain text
-2. **No Authentication**: Default XML-RPC has no built-in authentication
-3. **Command Injection**: Malicious clients could potentially exploit vulnerabilities
-4. **Information Disclosure**: System details exposed to anyone who can reach the port
+### Recommended Security Practices
 
-#### Mitigation Strategies
-
-**1. Network Isolation**
+#### 1. Network Isolation
 ```bash
-# Use firewall to restrict access
-sudo ufw allow from 192.168.1.0/24 to any port 9000
+# Use private networks only
+# Never expose agents to public internet
 
-# Or use SSH tunnel for secure access
-ssh -L 9000:localhost:9000 user@monitored-system
+# Firewall rules
+sudo ufw allow from 192.168.1.0/24 to any port 8000
+sudo ufw deny 8000
 ```
 
-**2. VPN or Private Network**
-- Deploy on internal network only
-- Use VPN for remote access
-- Never expose agents to public internet
-
-**3. XML-RPC Authentication (Basic Implementation)**
-
-Create a custom XML-RPC server with authentication:
-
-```python
-import base64
-
-class AuthenticatedAgent:
-    def __init__(self, username, password):
-        self.username = username
-        self.password = password
-    
-    def _authenticate(self, auth_header):
-        if not auth_header:
-            return False
-        try:
-            encoded = auth_header.split(' ')[1]
-            decoded = base64.b64decode(encoded).decode('utf-8')
-            username, password = decoded.split(':', 1)
-            return username == self.username and password == self.password
-        except:
-            return False
-    
-    def get_metrics(self, auth_header=""):
-        if not self._authenticate(auth_header):
-            raise Exception("Authentication required")
-        return self._get_metrics()
+#### 2. IP Whitelisting
+Update agent config:
+```json
+{
+    "security": {
+        "allowed_ips": ["192.168.1.10", "192.168.1.20"],
+        "require_auth": true
+    }
+}
 ```
 
-**4. Connection Limiting**
+#### 3. VPN/Tunneling
+```bash
+# Use SSH tunneling for encrypted communication
+ssh -L 8000:localhost:8000 user@system-b
+
+# Then connect to localhost:8000
+```
+
+#### 4. Reverse Proxy with SSL
+```bash
+# Use nginx with SSL termination
+location /xmlrpc/ {
+    proxy_pass http://localhost:8000/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
+
+#### 5. Rate Limiting
+```bash
+# Limit XML-RPC connections via iptables
+sudo iptables -A INPUT -p tcp --dport 8000 -m limit --limit 10/minute --limit-burst 5 -j ACCEPT
+```
+
+### Security Threat Detection
+
+The agent monitors for:
+- ✅ **Suspicious Processes** - Processes in `/tmp/`, `/var/tmp/`
+- ✅ **SSH Brute Force** - Failed login attempts in logs
+- ✅ **Unusual Network Activity** - Suspicious port connections
+- ✅ **Unauthorized Executables** - Processes without executable paths
+
+## Storage Options
+
+### File Storage (Default)
+
+**Advantages:**
+- ✅ No additional dependencies
+- ✅ Simple setup and maintenance
+- ✅ Good for small deployments
+- ✅ Easy log rotation
+
+**Disadvantages:**
+- ❌ Limited querying capabilities
+- ❌ No advanced analytics
+- ❌ Manual data cleanup needed
+
+**Configuration:**
+```json
+{
+    "storage": {
+        "type": "file",
+        "log_file": "/var/log/metrics_collector.log",
+        "metrics_file": "/var/log/metrics_data.log",
+        "json_file": "/var/log/metrics_data.json",
+        "rotation": {
+            "max_size": "10MB",
+            "backup_count": 5
+        }
+    }
+}
+```
+
+### MySQL Storage
+
+**Advantages:**
+- ✅ Advanced querying and filtering
+- ✅ Historical analysis and reporting
+- ✅ Concurrent access support
+- ✅ Backup and replication capabilities
+- ✅ Performance optimization via indexing
+
+**Disadvantages:**
+- ❌ Requires MySQL server
+- ❌ Additional dependency and setup
+- ❌ More complex troubleshooting
+
+**Setup:**
+```bash
+# Install MySQL
+sudo apt-get install mysql-server
+
+# Initialize database
+mysql -u root -p < db/init_database.sql
+
+# Update collector config for MySQL
+{
+    "storage": {
+        "type": "mysql",
+        "mysql_host": "localhost",
+        "mysql_user": "monitor",
+        "mysql_password": "secure_password",
+        "mysql_database": "monitoring"
+    }
+}
+```
+
+## Visualization
+
+### Available Graphs
+
+1. **CPU Temperature** - Temperature trends with threshold warnings
+2. **CPU Usage** - Usage percentage over time
+3. **System Load** - 1, 5, and 15-minute load averages
+4. **Memory Usage** - Memory consumption and percentages
+5. **Security Status** - Security threat levels and issue counts
+
+### Dashboard Generation
+
+```bash
+# Generate complete dashboard
+python3 /home/engine/project/visualization/visualize_metrics.py \
+    --output-dir /var/www/html/monitoring \
+    --hours 24 \
+    --plot all
+
+# Access dashboard
+firefox http://localhost/monitoring/index.html
+```
+
+### Graph Customization
+
 ```python
-# Limit concurrent connections
-self.server = ThreadedXMLRPCServer(
-    (self.host, self.port), 
-    requestHandler=self.limit_connections
+# Modify visualization/visualize_metrics.py
+# Custom time ranges
+--hours 168  # Last week
+--hours 720  # Last month
+
+# Filter by agent
+--agent server-01
+
+# Custom output directory
+--output-dir /tmp/custom-dashboard
+```
+
+## Adding Multiple Monitored Systems
+
+### Step 1: Configure New Agent (on System B)
+
+```bash
+# Copy agent files
+scp -r agent/ user@system-b:/tmp/monitor/
+
+# Install on new system
+ssh user@system-b
+sudo cp -r /tmp/monitor/agent /usr/local/
+sudo cp /tmp/monitor/config/agent_config.json /etc/monitor/
+sudo chmod +x /usr/local/agent/agent_server.py
+```
+
+### Step 2: Configure Firewall
+
+```bash
+# On System B
+sudo ufw allow from 192.168.1.0/24 to any port 8000
+
+# Or specific collector IP
+sudo ufw allow from 192.168.1.100 to any port 8000
+```
+
+### Step 3: Start Agent
+
+```bash
+# Test run
+python3 /usr/local/agent/agent_server.py
+
+# Install as service (see Quick Start section)
+```
+
+### Step 4: Add to Collector Configuration
+
+```bash
+# Edit collector config
+sudo nano /etc/monitor/collector_config.json
+
+# Add new agent
+{
+    "agents": [
+        {
+            "name": "server-01",
+            "host": "192.168.1.101",
+            "port": 8000
+        },
+        {
+            "name": "server-02",
+            "host": "192.168.1.102",
+            "port": 8000
+        },
+        {
+            "name": "new-server",
+            "host": "192.168.1.103",  # New agent
+            "port": 8000
+        }
+    ],
+    "poll_interval": 30
+}
+```
+
+### Step 5: Restart Collector
+
+```bash
+sudo systemctl restart monitor-collector
+
+# Verify new agent is being monitored
+tail -f /var/log/metrics_collector.log
+```
+
+### Step 6: Test Connectivity
+
+```bash
+# From System A, test new agent
+python3 -c "
+import xmlrpc.client
+proxy = xmlrpc.client.ServerProxy('http://192.168.1.103:8000')
+try:
+    print('Agent response:', proxy.ping())
+    metrics = proxy.get_metrics()
+    print('Metrics collected successfully')
+except Exception as e:
+    print('Connection failed:', e)
+"
+```
+
+### Bulk Deployment Script
+
+Create a deployment script for multiple agents:
+
+```bash
+#!/bin/bash
+# deploy_agents.sh
+
+AGENTS=(
+    "192.168.1.101:server-01"
+    "192.168.1.102:server-02"
+    "192.168.1.103:server-03"
+    "192.168.1.104:server-04"
 )
-```
 
-**5. IP Whitelisting**
+for agent in "${AGENTS[@]}"; do
+    ip=$(echo $agent | cut -d: -f1)
+    name=$(echo $agent | cut -d: -f2)
+    
+    echo "Deploying agent $name at $ip"
+    
+    # Copy files
+    scp -r agent/ user@$ip:/tmp/monitor/
+    scp config/agent_config.json user@$ip:/tmp/monitor/
+    
+    # Install
+    ssh user@$ip "
+        sudo mkdir -p /etc/monitor
+        sudo cp /tmp/monitor/agent/agent_server.py /usr/local/bin/monitor-agent-$name
+        sudo cp /tmp/monitor/config/agent_config.json /etc/monitor/agent_$name.json
+        sudo chmod +x /usr/local/bin/monitor-agent-$name
+    "
+done
 
-Modify the collector to only connect to approved IPs:
-
-```python
-def connect(self):
-    allowed_ips = ["192.168.1.100", "192.168.1.101"]
-    if self.host not in allowed_ips:
-        raise SecurityError("IP not in whitelist")
-```
-
-### Data Security
-
-**1. Log File Permissions**
-```bash
-# Restrict log file access
-chmod 640 /var/log/monitoring/collector.log
-chown monitor:monitor /var/log/monitoring/collector.log
-```
-
-**2. Database Security**
-```sql
--- Use strong passwords
-CREATE USER 'monitor'@'localhost' IDENTIFIED BY 'complex_random_password';
-
--- Grant minimal privileges
-GRANT SELECT, INSERT, UPDATE ON monitoring.* TO 'monitor'@'localhost';
-
--- Encrypt database at rest
--- Enable MySQL SSL connections
-```
-
-**3. Configuration Security**
-```bash
-# Restrict config file access
-chmod 640 config/config.ini
-chown monitor:monitor config/config.ini
-```
-
-### Network Security
-
-**1. Firewall Rules**
-```bash
-# Allow only collector to agent connections
-sudo ufw allow from COLLECTOR_IP to any port 9000
-sudo ufw deny 9000
-
-# Log dropped packets
-sudo ufw logging on
-```
-
-**2. SSH Tunneling**
-```bash
-# Create SSH tunnel for secure connection
-ssh -L 9000:localhost:9000 agent-user@agent-server
-
-# Update config to use localhost
-agent1 = localhost:9000
-```
-
-**3. VPN Setup**
-- Deploy on internal VLAN
-- Use VPN for remote monitoring
-- Isolate monitoring network
-
-### Production Recommendations
-
-1. **Never expose agents to public internet**
-2. **Use VPN or SSH tunnels for remote access**
-3. **Implement authentication if network cannot be secured**
-4. **Regularly update system and dependencies**
-5. **Monitor agent logs for suspicious activity**
-6. **Use TLS/SSL certificates if using HTTP proxies**
-7. **Implement rate limiting on agent connections**
-8. **Keep detailed audit logs**
-
-### Security Monitoring
-
-Add security monitoring for the monitoring system itself:
-
-```python
-# Monitor for brute force attempts
-def check_agent_access_log():
-    with open("/var/log/monitoring/collector.log") as f:
-        for line in f:
-            if "Failed to connect" in line:
-                # Alert on repeated failures
-                pass
+echo "All agents deployed. Start them manually."
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-**1. Agent Not Connecting**
+#### Agent Not Responding
 
 ```bash
 # Check if agent is running
-ps aux | grep monitoring.agent
+ps aux | grep agent_server
 
-# Check network connectivity
-telnet AGENT_IP 9000
+# Check port
+netstat -tlnp | grep 8000
 
-# Check agent logs
-tail -f /var/log/monitoring/agent.log
+# Check logs
+tail -f /var/log/monitor_agent.log
+
+# Test manually
+python3 -c "import xmlrpc.client; print(xmlrpc.client.ServerProxy('http://localhost:8000').ping())"
 ```
 
-**2. Temperature Sensors Not Available**
+#### Connection Timeout
 
 ```bash
-# Check thermal zones (Linux)
-ls -la /sys/class/thermal/
+# Check network connectivity
+ping 192.168.1.101
 
-# Check if sensors are enabled (Linux)
-sensors-detect
+# Check firewall
+sudo ufw status
 
-# Check psutil temperature support
-python3 -c "import psutil; print(psutil.sensors_temperatures())"
+# Test with telnet
+telnet 192.168.1.101 8000
 ```
 
-**3. MySQL Connection Failures**
+#### Permission Errors
+
+```bash
+# Create log directories
+sudo mkdir -p /var/log
+sudo chmod 777 /var/log
+
+# Or run as user with home directory
+# Edit paths in config to use ~/logs/
+```
+
+#### Temperature Not Available
+
+```bash
+# Check available sensors on Linux
+ls /sys/class/thermal/
+cat /sys/class/thermal/thermal_zone0/temp
+
+# Install lm-sensors
+sudo apt-get install lm-sensors
+sensors
+```
+
+#### MySQL Connection Failed
 
 ```bash
 # Test MySQL connection
-mysql -u monitor -p -h localhost monitoring
+mysql -u monitor -p monitoring
 
 # Check MySQL service
 sudo systemctl status mysql
 
-# Check network connectivity
-netstat -an | grep 3306
+# Verify user permissions
+mysql -u root -p
+SELECT User, Host FROM mysql.user WHERE User = 'monitor';
+SHOW GRANTS FOR 'monitor'@'localhost';
 ```
 
-**4. Permission Issues**
+### Log Locations
+
+- **Agent logs**: `/var/log/monitor_agent.log`
+- **Collector logs**: `/var/log/metrics_collector.log`
+- **Metrics data**: `/var/log/metrics_data.log` and `/var/log/metrics_data.json`
+- **System logs**: `/var/log/syslog` or `/var/log/messages`
+
+### Debug Mode
 
 ```bash
-# Fix log directory permissions
-sudo chown -R monitor:monitor /var/log/monitoring
-sudo chmod -R 755 /var/log/monitoring
+# Run agent in debug mode
+export PYTHONPATH=/home/engine/project:$PYTHONPATH
+python3 agent/agent_server.py
 
-# Fix configuration file
-chmod 640 config/config.ini
+# Run collector with verbose logging
+python3 collector/collector.py
 ```
-
-**5. Graphs Not Generated**
-
-```bash
-# Check matplotlib backend
-python3 -c "import matplotlib; print(matplotlib.get_backend())"
-
-# Install missing dependencies
-pip install matplotlib seaborn
-
-# Check output directory permissions
-ls -la /var/log/monitoring/graphs/
-```
-
-### Debugging Steps
-
-**1. Enable Debug Logging**
-```ini
-[general]
-log_level = DEBUG
-```
-
-**2. Test Agent Manually**
-```bash
-# Test XML-RPC connection
-python3 -c "
-import xmlrpc.client
-proxy = xmlrpc.client.ServerProxy('http://localhost:9000/')
-print(proxy.ping())
-print(proxy.get_metrics())
-"
-```
-
-**3. Test Collector Configuration**
-```bash
-# Validate config file
-python3 -c "
-import configparser
-c = configparser.ConfigParser()
-c.read('config/config.ini')
-print('Agents:', c.items('agents'))
-"
-
-# List known agents
-python3 -c "
-from src.monitoring.storage import create_storage
-s = create_storage('log')
-print('Known agents:', s.get_agents())
-"
-```
-
-**4. Check System Resources**
-```bash
-# Check disk space
-df -h /var/log/monitoring
-
-# Check memory usage
-free -h
-
-# Check CPU usage
-top
-```
-
-### Log Analysis
-
-**Common Log Patterns:**
-
-```
-INFO - Collector started
-INFO - Monitoring 3 agent(s)
-INFO - Loaded agent: server1 at 192.168.1.100:9000
-WARNING - ALERT [warning]: CPU temperature high: 75°C
-ERROR - Failed to connect to server1: Connection refused
-```
-
-**Alert Patterns:**
-- `ALERT [warning]`: Threshold exceeded
-- `ALERT [critical]`: Critical threshold exceeded
-- `Failed to connect`: Agent unreachable
-- `Failed to get metrics`: Agent response error
 
 ### Performance Tuning
 
-**1. Adjust Polling Interval**
-```ini
-[general]
-poll_interval = 30  # Increase to reduce load
-```
-
-**2. Optimize Database**
-```sql
--- Add indexes if missing
-CREATE INDEX idx_metric_type_time ON metrics(metric_type, timestamp);
-```
-
-**3. Archive Old Data**
 ```bash
-# Archive and delete old metrics
-find /var/log/monitoring/data -name "*.jsonl" -mtime +30 -exec gzip {} \;
+# Increase poll interval for large deployments
+"poll_interval": 60  # 1 minute instead of 30 seconds
+
+# Reduce log verbosity
+"log_level": "WARNING"
+
+# Limit concurrent connections
+"max_workers": 5
 ```
 
-**4. Reduce Graph Detail**
-```ini
-[visualization]
-graph_width = 8
-graph_height = 6
-```
+## License
 
-## Advanced Configuration
+MIT License - See LICENSE file for details
 
-### Custom Metrics
+## Support
 
-Extend the agent to collect custom metrics:
+For issues and questions:
+1. Check logs for error messages
+2. Verify network connectivity
+3. Test agents individually
+4. Review configuration files
+5. Check OS-specific limitations
 
-```python
-def get_custom_metric(self):
-    # Your custom metric collection logic
-    return value
+## Contributing
 
-# Register the method in XML-RPC
-class Agent:
-    # ... existing code ...
-    
-    def get_all_metrics(self):
-        metrics = self.metrics_collector.get_all_metrics()
-        metrics['custom_metric'] = self.get_custom_metric()
-        return metrics
-```
+To contribute:
+1. Fork the repository
+2. Create a feature branch
+3. Make changes with tests
+4. Submit a pull request
 
-### Custom Threshold Checks
+---
 
-Extend threshold monitoring:
-
-```python
-class CustomThresholdMonitor(ThresholdMonitor):
-    def check_disk_usage(self, metrics, agent_name):
-        alerts = []
-        disk = metrics.get('disk', {})
-        if disk.get('percent', 0) > 90:
-            alerts.append({
-                'agent': agent_name,
-                'type': 'disk_usage',
-                'severity': 'critical',
-                'message': f'Disk usage critical: {disk["percent"]}%'
-            })
-        return alerts
-```
-
-### Database Replication
-
-For high availability, set up MySQL replication:
-
-```sql
--- Master configuration
--- Add to my.cnf:
--- server-id=1
--- log-bin=mysql-bin
--- binlog-do-db=monitoring
-
--- Create replication user
-CREATE USER 'repl'@'%' IDENTIFIED BY 'replicate_password';
-GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
-```
-
-### Distributed Collectors
-
-Run multiple collectors for redundancy:
-
-```bash
-# Collector 1 - monitors agents 1-5
-[agents]
-agent1 = 192.168.1.100:9000
-agent2 = 192.168.1.101:9000
-
-# Collector 2 - monitors agents 6-10
-[agents]
-agent6 = 192.168.1.105:9000
-agent7 = 192.168.1.106:9000
-```
-
-### Alert Integration
-
-Integrate with external alerting systems:
-
-```python
-def send_slack_alert(self, alert):
-    webhook_url = "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
-    message = f"Alert: {alert['message']}"
-    # Send to Slack
-```
-
-### API Endpoints
-
-Expose metrics via web API:
-
-```python
-from flask import Flask, jsonify
-
-app = Flask(__name__)
-
-@app.route('/api/metrics/<agent_name>')
-def get_agent_metrics(agent_name):
-    metrics = storage.get_metrics(agent_name)
-    return jsonify(metrics)
-
-@app.route('/api/alerts')
-def get_alerts():
-    # Return current alerts
-    return jsonify(current_alerts)
-```
-
-## Conclusion
-
-This monitoring system provides a flexible, scalable solution for monitoring multiple systems. While XML-RPC provides simplicity, always consider security implications and use appropriate network protections.
-
-For production deployments:
-- Use network isolation and VPN
-- Implement proper authentication
-- Regular security audits
-- Monitor system performance
-- Keep dependencies updated
-
-The modular design allows for easy extension and customization based on specific monitoring needs.
+**Note**: This is a prototype system for educational and small-scale production use. For enterprise deployments, consider using mature monitoring solutions like Prometheus, Zabbix, or Nagios.

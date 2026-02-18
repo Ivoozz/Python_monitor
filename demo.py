@@ -1,257 +1,127 @@
 #!/usr/bin/env python3
 """
-Demo script for the monitoring system.
-This script demonstrates all features without requiring actual agents.
+Quick demo of the monitoring system functionality
 """
 
 import sys
-import os
 import time
-from datetime import datetime, timedelta
+from pathlib import Path
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+sys.path.insert(0, str(Path(__file__).parent))
 
-from src.monitoring.storage import create_storage
-from src.monitoring.agent import MetricsCollector
-from src.monitoring.visualization import Visualizer
-from src.monitoring.collector import ThresholdMonitor
-import configparser
+print("=" * 70)
+print("PYTHON MONITORING SYSTEM - QUICK DEMO")
+print("=" * 70)
 
+# Test 1: Agent
+print("\n[1/4] Testing Agent Server...")
+try:
+    from agent.agent_server import MonitorAgent
+    agent = MonitorAgent()
+    
+    # Collect metrics
+    metrics = agent.get_all_metrics()
+    print(f"  ✓ Agent initialized successfully")
+    print(f"  ✓ Hostname: {metrics['hostname']}")
+    print(f"  ✓ CPU Temperature: {metrics.get('cpu_temperature', 'N/A')}")
+    print(f"  ✓ CPU Usage: {metrics.get('cpu_usage', 0):.1f}%")
+    print(f"  ✓ System Load: {metrics.get('system_load', {})}")
+    print(f"  ✓ Security Status: {metrics.get('security_threats', {}).get('status', 'UNKNOWN')}")
+except Exception as e:
+    print(f"  ✗ Agent test failed: {e}")
 
-def demo_metrics_collection():
-    """Demonstrate metrics collection."""
-    print("\n" + "="*60)
-    print("DEMO 1: Metrics Collection")
-    print("="*60)
+# Test 2: Storage
+print("\n[2/4] Testing Storage Layer...")
+try:
+    from storage.storage_factory import StorageFactory
     
-    collector = MetricsCollector()
-    
-    print("\nCollecting metrics from local system...")
-    temp = collector.get_cpu_temperature()
-    cpu = collector.get_cpu_usage()
-    load = collector.get_system_load()
-    memory = collector.get_memory_usage()
-    disk = collector.get_disk_usage()
-    threats = collector.get_security_threats()
-    
-    print(f"\nCPU Temperature: {temp}°C")
-    print(f"CPU Usage: {cpu}%")
-    print(f"System Load: {load}")
-    print(f"Memory Usage: {memory.get('percent', 'N/A')}%")
-    print(f"Disk Usage: {disk.get('percent', 'N/A')}%")
-    print(f"Security Threats: {len(threats)} found")
-    
-    if threats:
-        for threat in threats[:3]:  # Show first 3
-            print(f"  - {threat.get('type', 'Unknown')}: {threat.get('description', 'N/A')}")
-    
-    return {
-        "cpu_temperature": temp,
-        "cpu_usage": cpu,
-        "system_load": load,
-        "memory": memory,
-        "disk": disk,
-        "security_threats": threats,
-        "timestamp": datetime.now().isoformat()
-    }
-
-
-def demo_storage(metrics):
-    """Demonstrate storage functionality."""
-    print("\n" + "="*60)
-    print("DEMO 2: Storage Backend")
-    print("="*60)
-    
-    # Test log storage
-    print("\nTesting Log Storage...")
-    log_storage = create_storage('log')
-    log_storage.save_metric("demo-agent", "cpu_temperature", metrics["cpu_temperature"])
-    log_storage.save_metric("demo-agent", "cpu_usage", metrics["cpu_usage"])
-    log_storage.save_metric("demo-agent", "system_load", 
-                           {"1min": metrics["system_load"]["1min"]})
-    
-    retrieved = log_storage.get_metrics("demo-agent", "cpu_temperature")
-    print(f"✓ Stored and retrieved {len(retrieved)} temperature metric(s)")
-    
-    # Test SQLite storage
-    print("\nTesting SQLite Storage...")
-    sqlite_storage = create_storage('sqlite')
-    sqlite_storage.save_metric("demo-agent", "cpu_temperature", metrics["cpu_temperature"])
-    sqlite_storage.save_metric("demo-agent", "cpu_usage", metrics["cpu_usage"])
-    
-    retrieved = sqlite_storage.get_metrics("demo-agent", "cpu_usage")
-    print(f"✓ Stored and retrieved {len(retrieved)} CPU usage metric(s)")
-    
-    return log_storage, sqlite_storage
-
-
-def demo_thresholds(metrics):
-    """Demonstrate threshold monitoring."""
-    print("\n" + "="*60)
-    print("DEMO 3: Threshold Monitoring")
-    print("="*60)
-    
-    config = configparser.ConfigParser()
-    config['thresholds'] = {
-        'cpu_temp_warning': '70',
-        'cpu_temp_critical': '85',
-        'load_warning': '2.0',
-        'load_critical': '4.0',
-        'cpu_usage_warning': '80',
-        'cpu_usage_critical': '95'
+    config = {
+        "type": "file",
+        "metrics_file": "/tmp/demo_metrics.log",
+        "json_file": "/tmp/demo_metrics.json"
     }
     
-    monitor = ThresholdMonitor(config)
-    alerts = monitor.check_metrics(metrics, "demo-agent")
+    storage = StorageFactory.create_storage(config)
     
-    print(f"\nGenerated {len(alerts)} alert(s):")
-    for alert in alerts:
-        print(f"  [{alert['severity'].upper()}] {alert['message']}")
-        print(f"    Type: {alert['type']}, Value: {alert['value']}")
+    # Store sample data
+    sample_data = [
+        {
+            "agent_name": "demo-agent",
+            "collection_time": "2024-01-01T12:00:00",
+            "cpu_usage": 50.0,
+            "cpu_temperature": 45.0,
+            "status": "success"
+        }
+    ]
     
-    return alerts
+    storage.store(sample_data)
+    print(f"  ✓ File storage working")
+    print(f"  ✓ Sample data stored")
+    
+    storage.close()
+except Exception as e:
+    print(f"  ✗ Storage test failed: {e}")
 
+# Test 3: XML-RPC
+print("\n[3/4] Testing XML-RPC Server...")
+try:
+    from xmlrpc.server import SimpleXMLRPCServer
+    import threading
+    
+    server = SimpleXMLRPCServer(("localhost", 8998), allow_none=True)
+    server.register_function(lambda: "PONG", "ping")
+    server.register_function(lambda: {"status": "ok"}, "get_status")
+    
+    server_thread = threading.Thread(target=server.serve_forever)
+    server_thread.daemon = True
+    server_thread.start()
+    
+    time.sleep(0.5)  # Let server start
+    
+    import xmlrpc.client
+    proxy = xmlrpc.client.ServerProxy("http://localhost:8998/", allow_none=True)
+    
+    result = proxy.ping()
+    print(f"  ✓ XML-RPC server started")
+    print(f"  ✓ Ping response: {result}")
+    
+    status = proxy.get_status()
+    print(f"  ✓ Status response: {status}")
+    
+    server.shutdown()
+    print(f"  ✓ XML-RPC test passed")
+    
+except Exception as e:
+    print(f"  ✗ XML-RPC test failed: {e}")
 
-def demo_visualization(storage):
-    """Demonstrate visualization generation."""
-    print("\n" + "="*60)
-    print("DEMO 4: Visualization")
-    print("="*60)
+# Test 4: Visualization
+print("\n[4/4] Testing Visualization...")
+try:
+    import matplotlib
+    matplotlib.use('Agg')  # Non-interactive backend
+    import matplotlib.pyplot as plt
     
-    # Create a config for visualization
-    config = configparser.ConfigParser()
-    config['visualization'] = {
-        'output_dir': './graphs',
-        'graph_width': '10',
-        'graph_height': '6'
-    }
-    config['storage'] = {'backend': 'log'}
+    # Create a simple test plot
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.plot([1, 2, 3, 4, 5], [1, 4, 2, 5, 3])
+    ax.set_title('Test Plot')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
     
-    visualizer = Visualizer.__new__(Visualizer)
-    visualizer.config = config
-    visualizer.output_dir = "./graphs"
-    visualizer.graph_width = 10
-    visualizer.graph_height = 6
-    visualizer._init_storage = lambda: storage
+    plt.savefig('/tmp/test_plot.png', dpi=100, bbox_inches='tight')
+    plt.close()
     
-    # Ensure graphs directory exists
-    os.makedirs("./graphs", exist_ok=True)
+    print(f"  ✓ Matplotlib available")
+    print(f"  ✓ Test plot created: /tmp/test_plot.png")
     
-    print("\nGenerating graphs for demo-agent...")
-    
-    # Create sample data points for demo
-    now = datetime.now()
-    for i in range(10):
-        temp = 60 + (i * 0.5)
-        cpu = 20 + (i * 2)
-        load = 1.0 + (i * 0.1)
-        
-        timestamp = now - timedelta(minutes=i*10)
-        
-        storage.save_metric("demo-agent", "cpu_temperature", temp, timestamp)
-        storage.save_metric("demo-agent", "cpu_usage", cpu, timestamp)
-        storage.save_metric("demo-agent", "system_load", 
-                           {"1min": load, "5min": load*0.8, "15min": load*0.6}, timestamp)
-    
-    # Generate overview graph
-    try:
-        # Note: We'll just simulate graph generation here as it requires matplotlib backend setup
-        print("✓ Created sample metric data")
-        print("✓ Note: Full graph generation requires matplotlib setup")
-        print(f"✓ Graphs would be saved to: {visualizer.output_dir}")
-    except Exception as e:
-        print(f"Note: Graph generation demo (actual graphs require full matplotlib): {e}")
+except Exception as e:
+    print(f"  ✗ Visualization test failed: {e}")
 
-
-def demo_agent_simulation():
-    """Simulate XML-RPC agent communication."""
-    print("\n" + "="*60)
-    print("DEMO 5: XML-RPC Communication Simulation")
-    print("="*60)
-    
-    print("\nIn a real deployment:")
-    print("1. Agent runs on System B: python -m src.monitoring.agent")
-    print("2. Agent listens on XML-RPC port (default 9000)")
-    print("3. Collector polls agent: xmlrpc.client.ServerProxy")
-    print("\nSimulated XML-RPC call:")
-    print("  proxy = xmlrpc.client.ServerProxy('http://localhost:9000/')")
-    print("  metrics = proxy.get_metrics()")
-    
-    # Simulate what would happen
-    collector = MetricsCollector()
-    simulated_metrics = collector.get_all_metrics()
-    
-    print("\n✓ Simulated metrics received:")
-    print(f"  - CPU Temperature: {simulated_metrics.get('cpu_temperature')}°C")
-    print(f"  - CPU Usage: {simulated_metrics.get('cpu_usage')}%")
-    print(f"  - System Load: {simulated_metrics.get('system_load', {}).get('1min', 'N/A')}")
-    print(f"  - Platform: {simulated_metrics.get('platform')}")
-    print(f"  - Hostname: {simulated_metrics.get('hostname')}")
-
-
-def main():
-    """Run all demos."""
-    print("\n" + "="*60)
-    print("PYTHON MONITORING SYSTEM - DEMONSTRATION")
-    print("="*60)
-    print("\nThis demo shows all major features of the monitoring system.")
-    print("No external dependencies or network connections required.")
-    
-    try:
-        # Demo 1: Collect metrics
-        metrics = demo_metrics_collection()
-        
-        # Demo 2: Storage
-        log_storage, sqlite_storage = demo_storage(metrics)
-        
-        # Demo 3: Threshold monitoring
-        alerts = demo_thresholds(metrics)
-        
-        # Demo 4: Visualization
-        demo_visualization(log_storage)
-        
-        # Demo 5: Agent simulation
-        demo_agent_simulation()
-        
-        # Summary
-        print("\n" + "="*60)
-        print("DEMONSTRATION COMPLETE")
-        print("="*60)
-        print("\nKey Features Demonstrated:")
-        print("✓ Multi-platform metrics collection")
-        print("✓ Flexible storage backends (Log, SQLite)")
-        print("✓ Configurable threshold monitoring")
-        print("✓ Alert generation")
-        print("✓ XML-RPC communication")
-        print("✓ Visualization preparation")
-        
-        print("\nNext Steps:")
-        print("1. Set up agents on systems you want to monitor")
-        print("2. Configure agents in config/config.ini")
-        print("3. Start the collector: python -m src.monitoring.collector")
-        print("4. Generate graphs: python -m src.monitoring.visualization")
-        print("5. Read docs/README.md for full documentation")
-        
-        # Cleanup
-        print("\nCleaning up demo data...")
-        import shutil
-        if os.path.exists("./data"):
-            shutil.rmtree("./data")
-        if os.path.exists("./metrics.db"):
-            os.remove("./metrics.db")
-        if os.path.exists("./graphs"):
-            shutil.rmtree("./graphs")
-        print("✓ Demo complete!")
-        
-    except Exception as e:
-        print(f"\n❌ Demo failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return 1
-    
-    return 0
-
-
-if __name__ == "__main__":
-    exit(main())
+print("\n" + "=" * 70)
+print("DEMO COMPLETE")
+print("=" * 70)
+print("\nTo start the actual system:")
+print("1. Terminal 1: python3 agent/agent_server.py")
+print("2. Terminal 2: python3 collector/collector.py")
+print("3. Terminal 3: python3 visualization/visualize_metrics.py --plot all")
+print("\nFor full documentation, see: docs/README.md")

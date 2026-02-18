@@ -16,49 +16,44 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual environments
 venv/
-env/
 ENV/
+env/
 .venv
 
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
+# Logs
+*.log
+/var/log/
+logs/
+
+# Metrics data
+*.json
+!config/*.json
+
 # OS
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
-logs/
-*.log.*
-
-# Monitoring data
-/var/log/monitoring/*.log
-/var/log/monitoring/data/*
-/var/log/monitoring/graphs/*
-!var/log/monitoring/data/.gitkeep
-!var/log/monitoring/graphs/.gitkeep
-
-# Config secrets (keep config.ini in git but not passwords)
-# Add actual config files with secrets to .gitignore after copying from .example
-config/config.ini
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
 
-# Temporary files
-tmp/
-temp/
+# Backup files
+*.bak
 *.tmp
