@@ -144,8 +144,13 @@ function New-VirtualEnvironment {
     Write-Success "Virtual environment created"
     
     Write-Info "Installing Python packages..."
-    & "$VenvDir\Scripts\pip.exe" install --upgrade pip --quiet
-    & "$VenvDir\Scripts\pip.exe" install -r "$InstallDir\requirements.txt" --quiet
+    $env:PIP_DISABLE_PIP_VERSION_CHECK = "1"
+    & "$VenvDir\Scripts\pip.exe" install --no-warn-script-location -r "$InstallDir\requirements.txt" --quiet
+    if ($LASTEXITCODE -ne 0) {
+        Write-ErrorMsg "Failed to install Python packages"
+        exit 1
+    }
+    $env:PIP_DISABLE_PIP_VERSION_CHECK = $null
     Write-Success "Python packages installed"
 }
 
