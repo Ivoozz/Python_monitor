@@ -4,35 +4,58 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Monitoring Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🖥️ System Monitoring Dashboard</h1>
+            <div class="header-content">
+                <div class="header-title">
+                    <h1><i class="fa-solid fa-desktop"></i> System Monitoring Dashboard</h1>
+                    <p class="header-subtitle">Real-time system metrics and device monitoring</p>
+                </div>
+                <div class="header-actions">
+                    <button id="theme-toggle" class="btn-icon" aria-label="Toggle dark mode" title="Toggle dark mode">
+                        <i class="fa-solid fa-moon"></i>
+                    </button>
+                </div>
+            </div>
             <div class="status-bar">
-                <span id="last-updated">Last updated: --</span>
-                <span id="auto-refresh-status" class="status-badge">Auto-refresh: ON</span>
+                <span id="last-updated" class="status-item">
+                    <i class="fa-regular fa-clock"></i> Last updated: --
+                </span>
+                <span id="auto-refresh-status" class="status-badge">
+                    <i class="fa-solid fa-sync"></i> Auto-refresh: ON
+                </span>
             </div>
         </header>
 
         <!-- Add Device Form -->
         <section class="card add-device-section">
-            <h2>Add Monitored Device</h2>
+            <h2><i class="fa-solid fa-plus-circle"></i> Add Monitored Device</h2>
             <form id="add-device-form" class="form-inline">
                 <div class="form-group">
-                    <label for="device-name">Name:</label>
+                    <label for="device-name">
+                        <i class="fa-solid fa-tag"></i> Name
+                    </label>
                     <input type="text" id="device-name" name="name" placeholder="e.g., web-server-01" required>
                 </div>
                 <div class="form-group">
-                    <label for="device-host">IP Address:</label>
+                    <label for="device-host">
+                        <i class="fa-solid fa-network-wired"></i> IP Address
+                    </label>
                     <input type="text" id="device-host" name="host" placeholder="e.g., 192.168.1.100" required>
                 </div>
                 <div class="form-group">
-                    <label for="device-port">Port:</label>
+                    <label for="device-port">
+                        <i class="fa-solid fa-plug"></i> Port
+                    </label>
                     <input type="number" id="device-port" name="port" value="8000" min="1" max="65535" required>
                 </div>
-                <button type="submit" class="btn btn-primary">Add Device</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-plus"></i> Add Device
+                </button>
             </form>
             <div id="form-message" class="form-message"></div>
         </section>
@@ -40,28 +63,36 @@
         <!-- Summary Cards -->
         <section class="summary-section">
             <div class="summary-card">
-                <div class="summary-icon">📊</div>
+                <div class="summary-icon">
+                    <i class="fa-solid fa-server"></i>
+                </div>
                 <div class="summary-content">
                     <div class="summary-label">Total Devices</div>
                     <div class="summary-value" id="total-devices">0</div>
                 </div>
             </div>
             <div class="summary-card success">
-                <div class="summary-icon">✅</div>
+                <div class="summary-icon">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
                 <div class="summary-content">
                     <div class="summary-label">Online</div>
                     <div class="summary-value" id="online-devices">0</div>
                 </div>
             </div>
             <div class="summary-card error">
-                <div class="summary-icon">❌</div>
+                <div class="summary-icon">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </div>
                 <div class="summary-content">
                     <div class="summary-label">Offline</div>
                     <div class="summary-value" id="offline-devices">0</div>
                 </div>
             </div>
             <div class="summary-card warning">
-                <div class="summary-icon">⚠️</div>
+                <div class="summary-icon">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
                 <div class="summary-content">
                     <div class="summary-label">Alerts</div>
                     <div class="summary-value" id="total-alerts">0</div>
@@ -72,34 +103,36 @@
         <!-- Devices List -->
         <section class="card devices-section">
             <div class="section-header">
-                <h2>Monitored Devices</h2>
+                <h2><i class="fa-solid fa-list"></i> Monitored Devices</h2>
                 <button id="refresh-btn" class="btn btn-secondary" onclick="refreshMetrics()">
-                    🔄 Refresh Now
+                    <i class="fa-solid fa-rotate"></i> Refresh Now
                 </button>
             </div>
             <div id="devices-container">
-                <div class="loading">Loading devices...</div>
+                <div class="loading">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Loading devices...
+                </div>
             </div>
         </section>
 
         <!-- Metrics Graphs -->
         <section class="card graphs-section">
-            <h2>Live Metrics</h2>
+            <h2><i class="fa-solid fa-chart-line"></i> Live Metrics</h2>
             <div class="graphs-grid">
                 <div class="graph-card">
-                    <h3>CPU Usage</h3>
+                    <h3><i class="fa-solid fa-microchip"></i> CPU Usage</h3>
                     <canvas id="cpu-graph"></canvas>
                 </div>
                 <div class="graph-card">
-                    <h3>Memory Usage</h3>
+                    <h3><i class="fa-solid fa-memory"></i> Memory Usage</h3>
                     <canvas id="memory-graph"></canvas>
                 </div>
                 <div class="graph-card">
-                    <h3>System Load</h3>
+                    <h3><i class="fa-solid fa-gauge-high"></i> System Load</h3>
                     <canvas id="load-graph"></canvas>
                 </div>
                 <div class="graph-card">
-                    <h3>Disk Usage</h3>
+                    <h3><i class="fa-solid fa-hard-drive"></i> Disk Usage</h3>
                     <canvas id="disk-graph"></canvas>
                 </div>
             </div>

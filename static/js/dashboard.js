@@ -1,4 +1,4 @@
-// Dashboard JavaScript - Auto-refresh and Graphs
+// Dashboard JavaScript - Auto-refresh, Graphs, and Dark Mode
 
 // Configuration
 const POLL_INTERVAL = 5000; // 5 seconds
@@ -13,6 +13,7 @@ const MAX_HISTORY_POINTS = 20;
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
+    initTheme();
     loadDevices();
     refreshMetrics();
     startAutoRefresh();
@@ -134,7 +135,7 @@ function renderDevices(devices) {
     if (!devices || devices.length === 0) {
         container.innerHTML = `
             <div class="no-devices">
-                <div class="no-devices-icon">📡</div>
+                <div class="no-devices-icon"><i class="fa-solid fa-server"></i></div>
                 <h3>No devices configured</h3>
                 <p>Add a device above to start monitoring</p>
             </div>
@@ -147,24 +148,27 @@ function renderDevices(devices) {
             <div class="device-header">
                 <span class="device-name">${device.name}</span>
                 <span class="device-status ${device.enabled ? 'online' : 'disabled'}">
+                    <i class="fa-solid ${device.enabled ? 'fa-check' : 'fa-ban'}"></i>
                     ${device.enabled ? 'Enabled' : 'Disabled'}
                 </span>
             </div>
             <div class="device-info">
                 <div class="device-info-item">
-                    <span class="device-info-label">Host</span>
+                    <span class="device-info-label"><i class="fa-solid fa-network-wired"></i> Host</span>
                     <span class="device-info-value">${device.host}:${device.port}</span>
                 </div>
                 <div class="device-info-item">
-                    <span class="device-info-label">Added</span>
+                    <span class="device-info-label"><i class="fa-regular fa-calendar"></i> Added</span>
                     <span class="device-info-value">${new Date(device.added_at).toLocaleDateString()}</span>
                 </div>
             </div>
             <div class="device-actions">
                 <button class="btn btn-secondary" onclick="toggleDevice('${device.name}', ${!device.enabled})">
+                    <i class="fa-solid ${device.enabled ? 'fa-toggle-on' : 'fa-toggle-off'}"></i>
                     ${device.enabled ? 'Disable' : 'Enable'}
                 </button>
                 <button class="btn btn-danger" onclick="deleteDevice('${device.name}')">
+                    <i class="fa-solid fa-trash"></i>
                     Remove
                 </button>
             </div>
@@ -234,9 +238,9 @@ function renderMetrics(devices) {
             if (metrics.alerts && metrics.alerts.length > 0) {
                 alertsHtml = `
                     <div class="device-alerts">
-                        <h4>⚠️ Alerts (${metrics.alerts.length})</h4>
+                        <h4><i class="fa-solid fa-triangle-exclamation"></i> Alerts (${metrics.alerts.length})</h4>
                         ${metrics.alerts.map(alert => `
-                            <div class="alert-item">• ${alert.message}</div>
+                            <div class="alert-item"><i class="fa-solid fa-circle-exclamation"></i> ${alert.message}</div>
                         `).join('')}
                     </div>
                 `;
@@ -326,6 +330,11 @@ function drawGraph(canvasId, data, color, unit) {
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
     
+    // Theme-aware colors
+    const isDarkMode = document.documentElement.classList.contains('theme-dark');
+    const gridColor = isDarkMode ? '#334155' : '#e0e0e0';
+    const textColor = isDarkMode ? '#cbd5e1' : '#666';
+    
     // Find min/max values
     const values = data.map(d => d.value);
     const minValue = Math.min(...values) * 0.9;
@@ -333,7 +342,7 @@ function drawGraph(canvasId, data, color, unit) {
     const valueRange = maxValue - minValue || 1;
     
     // Draw grid lines
-    ctx.strokeStyle = '#e0e0e0';
+    ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let i = 0; i <= 4; i++) {
@@ -360,7 +369,7 @@ function drawGraph(canvasId, data, color, unit) {
     });
     ctx.stroke();
     
-    // Draw area under line
+    // Draw area under line (with transparency)
     ctx.fillStyle = color + '20';
     ctx.lineTo(padding.left + graphWidth, padding.top + graphHeight);
     ctx.lineTo(padding.left, padding.top + graphHeight);
@@ -379,7 +388,7 @@ function drawGraph(canvasId, data, color, unit) {
     });
     
     // Draw y-axis labels
-    ctx.fillStyle = '#666';
+    ctx.fillStyle = textColor;
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'right';
     for (let i = 0; i <= 4; i++) {
@@ -455,3 +464,101 @@ window.addEventListener('resize', function() {
     drawGraph('load-graph', metricsHistory.load, '#ffa726', '');
     drawGraph('disk-graph', metricsHistory.disk, '#ab47bc', '%');
 });
+
+// ========================================
+// Theme Management (Dark Mode)
+// ========================================
+
+/**
+ * Initialize theme based on saved preference or system preference
+ */
+function initTheme() {
+    const savedTheme = localStorage.getItem('dashboard-theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    // Use saved theme, or fall back to system preference
+    const prefersDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
+    
+    setTheme(prefersDark);
+    
+    // Listen for system preference changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        // Only auto-switch if user hasn't manually set a preference
+        if (!localStorage.getItem('dashboard-theme')) {
+            setTheme(e.matches);
+        }
+    });
+    
+    // Setup theme toggle button
+    setupThemeToggle();
+}
+
+/**
+ * Set the theme (dark or light)
+ * @param {boolean} isDark - Whether to use dark mode
+ */
+function setTheme(isDark) {
+    const htmlElement = document.documentElement;
+    const bodyElement = document.body;
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    
+    if (isDark) {
+        htmlElement.classList.add('theme-dark');
+        bodyElement.classList.add('theme-dark');
+        if (themeToggleBtn) {
+            const icon = themeToggleBtn.querySelector('i');
+            if (icon) {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            }
+            themeToggleBtn.setAttribute('title', 'Switch to light mode');
+            themeToggleBtn.setAttribute('aria-label', 'Switch to light mode');
+        }
+    } else {
+        htmlElement.classList.remove('theme-dark');
+        bodyElement.classList.remove('theme-dark');
+        if (themeToggleBtn) {
+            const icon = themeToggleBtn.querySelector('i');
+            if (icon) {
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            }
+            themeToggleBtn.setAttribute('title', 'Switch to dark mode');
+            themeToggleBtn.setAttribute('aria-label', 'Switch to dark mode');
+        }
+    }
+}
+
+/**
+ * Setup theme toggle button functionality
+ */
+function setupThemeToggle() {
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', function() {
+            const isDark = document.documentElement.classList.contains('theme-dark');
+            const newTheme = isDark ? 'light' : 'dark';
+            
+            // Save user's preference
+            localStorage.setItem('dashboard-theme', newTheme);
+            
+            // Apply the new theme
+            setTheme(!isDark);
+            
+            // Optional: Add a small animation feedback
+            themeToggleBtn.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                themeToggleBtn.style.transform = '';
+            }, 100);
+        });
+    }
+}
+
+/**
+ * Get the current theme (for graph color adjustments if needed)
+ * @returns {string} - 'dark' or 'light'
+ */
+function getCurrentTheme() {
+    return document.documentElement.classList.contains('theme-dark') ? 'dark' : 'light';
+}
