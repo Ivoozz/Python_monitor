@@ -1,0 +1,58 @@
+# Monitoring System Configuration - Example
+# Copy this file to config.ini and modify as needed
+
+[general]
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = INFO
+# Polling interval in seconds
+poll_interval = 10
+
+[storage]
+# Storage backend: 'log', 'mysql', or 'sqlite'
+backend = log
+# Data retention days (for cleanup)
+retention_days = 30
+
+[logging]
+# Log file path
+log_file = /var/log/monitoring/collector.log
+# Max log file size in MB
+max_log_size = 10
+# Number of backup log files
+backup_count = 5
+
+[mysql]
+# MySQL configuration (only used if backend = mysql)
+host = localhost
+port = 3306
+user = monitor
+password = changeme
+database = monitoring
+
+[agents]
+# List of agents to monitor
+# Format: name = host:port
+# Add your agents below (remove examples):
+agent1 = localhost:9000
+# server1 = 192.168.1.100:9000
+# server2 = 192.168.1.101:9000
+
+[thresholds]
+# Alert thresholds
+# CPU temperature threshold in Celsius
+cpu_temp_warning = 70
+cpu_temp_critical = 85
+# System load threshold (1 min average)
+load_warning = 2.0
+load_critical = 4.0
+# CPU usage percentage
+cpu_usage_warning = 80
+cpu_usage_critical = 95
+
+[visualization]
+# Output directory for graphs
+output_dir = /var/log/monitoring/graphs
+# Graph width in inches
+graph_width = 12
+# Graph height in inches
+graph_height = 8
