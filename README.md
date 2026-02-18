@@ -23,13 +23,17 @@ curl -sSL https://raw.githubusercontent.com/Ivoozz/Python_monitor/main/install.s
 ### Windows (PowerShell)
 
 ```powershell
-Invoke-Expression (Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Ivoozz/Python_monitor/main/install.ps1').Content
+Invoke-Expression (Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/Ivoozz/Python_monitor/main/install.ps1').Content
 ```
 
 > **Note for Windows users**: If you encounter execution policy errors, first run:
 > ```powershell
 > Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 > ```
+
+> **pip behaviour**: The Windows installer creates a fresh virtual environment and installs
+> requirements directly — it does **not** upgrade pip inside the venv, so you will never
+> see pip self-upgrade prompts or warnings during installation.
 
 ## Installation Types
 
