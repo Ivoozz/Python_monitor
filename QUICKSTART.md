@@ -14,6 +14,7 @@ Required packages:
 - seaborn (graph styling)
 - numpy (numerical operations)
 - pymysql (optional, for MySQL storage)
+- flask (web dashboard)
 
 ### 2. Set Up Configuration
 
@@ -54,6 +55,39 @@ chmod +x scripts/start_collector.sh
 ```
 
 The collector will start polling configured agents.
+
+### Start Web Dashboard
+
+The web dashboard provides a real-time, auto-refreshing interface for monitoring your systems:
+
+```bash
+chmod +x scripts/start_dashboard.sh
+./scripts/start_dashboard.sh
+```
+
+The dashboard will start on port 5000 by default. Access it at:
+- `http://localhost:5000` (local access)
+- `http://<your-server-ip>:5000` (remote access)
+
+**Dashboard Features:**
+- 📊 Real-time metrics with auto-refresh (5-second intervals)
+- ➕ Add/remove monitored devices via web form
+- 📈 Live graphs for CPU, memory, disk, and system load
+- ⚠️ Alert notifications for threshold breaches
+- 💾 Persistent device configuration (saved to JSON)
+- 🎨 Responsive design for desktop and mobile
+
+**Using the Dashboard:**
+1. Open the dashboard in your browser
+2. Use the "Add Monitored Device" form to add agents by IP/port
+3. View live metrics and graphs that update automatically
+4. Enable/disable devices or remove them from monitoring
+5. Click "Refresh Now" to manually update metrics
+
+**Custom Dashboard Port:**
+```bash
+DASHBOARD_PORT=8080 ./scripts/start_dashboard.sh
+```
 
 ### Generate Graphs
 

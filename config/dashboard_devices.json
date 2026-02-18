@@ -1,0 +1,9 @@
+[
+  {
+    "name": "test-server",
+    "host": "localhost",
+    "port": 8000,
+    "added_at": "2026-02-18T22:06:12.963736",
+    "enabled": true
+  }
+]
