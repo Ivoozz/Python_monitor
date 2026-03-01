@@ -152,12 +152,12 @@ ask_installation_type() {
         read -p "Enter your choice (A/B): " choice
         case $choice in
             [Aa]* )
-                INSTALL_TYPE="agent"
+                INSTALL_TYPE="monitor"
                 print_info "Selected: System A (Monitor + Dashboard)"
                 return 0
                 ;;
             [Bb]* )
-                INSTALL_TYPE="monitor"
+                INSTALL_TYPE="agent"
                 print_info "Selected: System B (Agent only)"
                 return 0
                 ;;
@@ -367,9 +367,13 @@ main() {
         INTERACTIVE=true
     else
         INTERACTIVE=false
-        print_warning "Running non-interactively. Please run with: curl ... | bash -s -- -i"
-        # Default to agent for non-interactive
-        INSTALL_TYPE="agent"
+        if [ -z "$INSTALL_TYPE" ]; then
+            print_error "Running non-interactively without an installation type specified."
+            print_error "Please pass --agent or --monitor when piping:"
+            print_error "  curl -sSL ... | bash -s -- --agent"
+            print_error "  curl -sSL ... | bash -s -- --monitor"
+            exit 1
+        fi
     fi
     
     check_python
@@ -404,8 +408,8 @@ while [[ $# -gt 0 ]]; do
             echo "  curl -sSL https://raw.githubusercontent.com/Ivoozz/Python_monitor/main/install.sh | bash"
             echo ""
             echo "Options (for direct execution):"
-            echo "  --agent      Install System A (Monitor + Dashboard)"
-            echo "  --monitor    Install System B (Agent only)"
+            echo "  --agent      Install System B (Agent only)"
+            echo "  --monitor    Install System A (Monitor + Dashboard)"
             echo "  -h, --help   Show this help"
             exit 0
             ;;
